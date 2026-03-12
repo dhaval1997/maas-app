@@ -23,6 +23,26 @@ export interface DashboardStats {
     passesSold: number
     validations: number
   }>
+  totalRevenue: number
+  revenueByUser: Array<{
+    userId: string
+    name: string
+    email: string
+    passCount: number
+    revenue: number
+    lastPurchaseAt: string | null
+  }>
+  purchasedPasses: Array<{
+    id: string
+    passCode: string
+    passTypeName: string
+    price: number
+    userName: string
+    userEmail: string
+    purchaseDate: string
+    expiryDate: string
+    status: "ACTIVE" | "EXPIRED"
+  }>
 }
 
 export interface UpsertPassTypeInput {

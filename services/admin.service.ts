@@ -115,6 +115,87 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     }
   })
 
+  const passTypeById = new Map(
+    mockStore.passTypes.map((passType) => [passType.id, passType])
+  )
+  const userById = new Map(mockStore.users.map((user) => [user.id, user]))
+
+  const totalRevenue = mockStore.userPasses.reduce((sum, pass) => {
+    const price = passTypeById.get(pass.passTypeId)?.price ?? 0
+    return sum + price
+  }, 0)
+
+  const revenueByUserMap = new Map<
+    string,
+    {
+      userId: string
+      name: string
+      email: string
+      passCount: number
+      revenue: number
+      lastPurchaseAt: string | null
+    }
+  >()
+
+  mockStore.userPasses.forEach((pass) => {
+    const user = userById.get(pass.userId)
+    if (!user) {
+      return
+    }
+
+    const price = passTypeById.get(pass.passTypeId)?.price ?? 0
+    const current = revenueByUserMap.get(user.id) ?? {
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      passCount: 0,
+      revenue: 0,
+      lastPurchaseAt: null,
+    }
+
+    current.passCount += 1
+    current.revenue += price
+    current.lastPurchaseAt =
+      !current.lastPurchaseAt || pass.purchaseDate > current.lastPurchaseAt
+        ? pass.purchaseDate
+        : current.lastPurchaseAt
+
+    revenueByUserMap.set(user.id, current)
+  })
+
+  const revenueByUser = Array.from(revenueByUserMap.values())
+    .sort(
+      (left, right) =>
+        right.revenue - left.revenue ||
+        right.passCount - left.passCount ||
+        left.name.localeCompare(right.name)
+    )
+    .slice(0, 50)
+
+  const purchasedPasses = [...mockStore.userPasses]
+    .sort(
+      (left, right) =>
+        new Date(right.purchaseDate).getTime() -
+        new Date(left.purchaseDate).getTime()
+    )
+    .slice(0, 50)
+    .map((pass) => {
+      const passType = passTypeById.get(pass.passTypeId)
+      const user = userById.get(pass.userId)
+
+      return {
+        id: pass.id,
+        passCode: pass.passCode,
+        passTypeName: passType?.name ?? pass.passTypeName,
+        price: passType?.price ?? 0,
+        userName: user?.name ?? "Unknown",
+        userEmail: user?.email ?? "unknown@example.com",
+        purchaseDate: pass.purchaseDate,
+        expiryDate: pass.expiryDate,
+        status: pass.status,
+      }
+    })
+
   const stats = dashboardStatsSchema.parse({
     passesSold,
     validationsByMode: [
@@ -130,6 +211,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       count,
     })),
     activityTrend,
+    totalRevenue,
+    revenueByUser,
+    purchasedPasses,
   })
 
   return mockDelay(stats)

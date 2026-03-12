@@ -31,6 +31,30 @@ export const dashboardStatsSchema = z.object({
       validations: z.number().int().nonnegative(),
     })
   ),
+  totalRevenue: z.number().nonnegative(),
+  revenueByUser: z.array(
+    z.object({
+      userId: z.string(),
+      name: z.string(),
+      email: z.string(),
+      passCount: z.number().int().nonnegative(),
+      revenue: z.number().nonnegative(),
+      lastPurchaseAt: z.string().nullable(),
+    })
+  ),
+  purchasedPasses: z.array(
+    z.object({
+      id: z.string(),
+      passCode: z.string(),
+      passTypeName: z.string(),
+      price: z.number().nonnegative(),
+      userName: z.string(),
+      userEmail: z.string(),
+      purchaseDate: z.string(),
+      expiryDate: z.string(),
+      status: z.enum(["ACTIVE", "EXPIRED"]),
+    })
+  ),
 })
 
 export const upsertPassTypeInputSchema = z.object({

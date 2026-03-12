@@ -52,6 +52,11 @@ export async function GET(request: Request) {
     const totalUsersRow = await dbQueryOne<{ count: string }>(
       "SELECT COUNT(*) AS count FROM users"
     )
+    const totalRevenueRow = await dbQueryOne<{ revenue: string }>(
+      `SELECT COALESCE(SUM(pt.price), 0) AS revenue
+       FROM user_passes up
+       JOIN pass_types pt ON pt.id = up.pass_type_id`
+    )
 
     const usersByRoleRows = await dbQuery<{
       role: "COMMUTER" | "VALIDATOR" | "ADMIN"
@@ -61,6 +66,55 @@ export async function GET(request: Request) {
       `SELECT role, is_super_admin, COUNT(*) AS count
        FROM users
        GROUP BY role, is_super_admin`
+    )
+
+    const revenueByUserRows = await dbQuery<{
+      user_id: string
+      name: string
+      email: string
+      pass_count: string
+      revenue: string
+      last_purchase_at: string | null
+    }>(
+      `SELECT u.id AS user_id,
+              u.name,
+              u.email,
+              COUNT(up.id) AS pass_count,
+              COALESCE(SUM(pt.price), 0) AS revenue,
+              MAX(up.purchase_date) AS last_purchase_at
+       FROM users u
+       JOIN user_passes up ON up.user_id = u.id
+       JOIN pass_types pt ON pt.id = up.pass_type_id
+       GROUP BY u.id, u.name, u.email
+       ORDER BY revenue DESC, pass_count DESC, u.name ASC
+       LIMIT 50`
+    )
+
+    const purchasedPassRows = await dbQuery<{
+      id: string
+      pass_code: string
+      pass_type_name: string
+      price: string
+      user_name: string
+      user_email: string
+      purchase_date: string
+      expiry_date: string
+      status: "ACTIVE" | "EXPIRED"
+    }>(
+      `SELECT up.id,
+              up.pass_code,
+              pt.name AS pass_type_name,
+              pt.price,
+              u.name AS user_name,
+              u.email AS user_email,
+              up.purchase_date,
+              up.expiry_date,
+              up.status
+       FROM user_passes up
+       JOIN pass_types pt ON pt.id = up.pass_type_id
+       JOIN users u ON u.id = up.user_id
+       ORDER BY up.purchase_date DESC
+       LIMIT 50`
     )
 
     const userRoleCountMap = new Map<UserRole, number>()
@@ -116,6 +170,28 @@ export async function GET(request: Request) {
         count: userRoleCountMap.get(role) ?? 0,
       })),
       activityTrend,
+      totalRevenue: Number(totalRevenueRow?.revenue ?? 0),
+      revenueByUser: revenueByUserRows.map((row) => ({
+        userId: row.user_id,
+        name: row.name,
+        email: row.email,
+        passCount: Number(row.pass_count ?? 0),
+        revenue: Number(row.revenue ?? 0),
+        lastPurchaseAt: row.last_purchase_at
+          ? new Date(row.last_purchase_at).toISOString()
+          : null,
+      })),
+      purchasedPasses: purchasedPassRows.map((row) => ({
+        id: row.id,
+        passCode: row.pass_code,
+        passTypeName: row.pass_type_name,
+        price: Number(row.price ?? 0),
+        userName: row.user_name,
+        userEmail: row.user_email,
+        purchaseDate: new Date(row.purchase_date).toISOString(),
+        expiryDate: new Date(row.expiry_date).toISOString(),
+        status: row.status,
+      })),
     })
   } catch (error) {
     return handleApiError(error)
