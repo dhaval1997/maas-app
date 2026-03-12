@@ -149,7 +149,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="gap-3">
+      <SidebarFooter className="dark gap-3">
         <div className="rounded-md border border-sidebar-border/70 p-2 text-xs">
           <div className="flex items-center gap-2">
             <UserRoundIcon className="size-4 text-muted-foreground" />
@@ -163,7 +163,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </div>
 
         <Button
-          variant="outline"
           className="justify-start"
           onClick={() => {
             logout()

@@ -18,11 +18,13 @@ import {
   ClockIcon,
   TicketIcon,
   UsersIcon,
+  WalletIcon,
 } from "lucide-react"
 
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { PageHeader } from "@/components/common/page-header"
 import { StatCard } from "@/components/common/stat-card"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartContainer,
@@ -31,8 +33,18 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { useAdminDashboardQuery } from "@/hooks/use-maas-api"
 import { TRANSPORT_MODE_LABELS, USER_ROLE_LABELS } from "@/lib/constants"
+import { formatCurrency, formatDateTime } from "@/lib/formatters"
 
 const validationChartConfig = {
   count: {
@@ -78,6 +90,8 @@ export default function AdminDashboardPage() {
   }
 
   const stats = dashboardQuery.data
+  const revenueByUser = stats?.revenueByUser ?? []
+  const purchasedPasses = stats?.purchasedPasses ?? []
 
   return (
     <ProtectedRoute allowedRoles={["ADMIN", "SUPER_ADMIN"]}>
@@ -87,7 +101,7 @@ export default function AdminDashboardPage() {
           description="Sales, usage, and user distribution insights."
         />
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <StatCard
             title="Passes Sold Today"
             value={stats?.passesSold.daily ?? 0}
@@ -97,6 +111,11 @@ export default function AdminDashboardPage() {
             title="Passes Sold Weekly"
             value={stats?.passesSold.weekly ?? 0}
             icon={ClockIcon}
+          />
+          <StatCard
+            title="Total Revenue"
+            value={formatCurrency(stats?.totalRevenue ?? 0)}
+            icon={WalletIcon}
           />
           <StatCard
             title="Active Passes"
@@ -198,6 +217,103 @@ export default function AdminDashboardPage() {
                 />
               </LineChart>
             </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pass Ownership & Revenue by User</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableCaption>Top 50 users ranked by total revenue.</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Passes Owned</TableHead>
+                  <TableHead>Revenue</TableHead>
+                  <TableHead>Last Purchase</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {revenueByUser.length ? (
+                  revenueByUser.map((entry) => (
+                    <TableRow key={entry.userId}>
+                      <TableCell className="font-medium">{entry.name}</TableCell>
+                      <TableCell>{entry.email}</TableCell>
+                      <TableCell>{entry.passCount}</TableCell>
+                      <TableCell>{formatCurrency(entry.revenue)}</TableCell>
+                      <TableCell>
+                        {entry.lastPurchaseAt
+                          ? formatDateTime(entry.lastPurchaseAt)
+                          : "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      No purchases recorded yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Purchased Passes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableCaption>Latest 50 purchased passes with expiry details.</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pass Code</TableHead>
+                  <TableHead>Pass Type</TableHead>
+                  <TableHead>User</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Purchased At</TableHead>
+                  <TableHead>Expires At</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {purchasedPasses.length ? (
+                  purchasedPasses.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-medium">{entry.passCode}</TableCell>
+                      <TableCell>{entry.passTypeName}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{entry.userName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {entry.userEmail}
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatCurrency(entry.price)}</TableCell>
+                      <TableCell>{formatDateTime(entry.purchaseDate)}</TableCell>
+                      <TableCell>{formatDateTime(entry.expiryDate)}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={entry.status === "ACTIVE" ? "secondary" : "destructive"}
+                        >
+                          {entry.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      No passes purchased yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>
